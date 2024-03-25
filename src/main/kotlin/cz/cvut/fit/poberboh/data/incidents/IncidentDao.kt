@@ -1,12 +1,13 @@
 package cz.cvut.fit.poberboh.data.incidents
 
-import cz.cvut.fit.poberboh.data.users.UserEntity
+import cz.cvut.fit.poberboh.data.State
 
 interface IncidentDao {
     suspend fun readAllIncidents(): List<Incident>
-    suspend fun readAllIncidentsByUserId(): List<Incident>
-    suspend fun readAllIncidentsByUserUsername(): List<Incident>
-    suspend fun readIncident(id: Long): Incident?
-    suspend fun createIncident(userEntity: UserEntity, category: String, note: String?): Incident?
+    suspend fun readAllIncidentsByUserId(id: Long): List<Incident>
+    suspend fun readIncidentById(id: Long): Incident?
+    suspend fun readState(id: Long): State?
+    suspend fun switchState(id: Long): Boolean
+    suspend fun createIncident(userId: Long, category: String, note: String?): Incident?
     suspend fun deleteIncident(id: Long): Boolean
 }

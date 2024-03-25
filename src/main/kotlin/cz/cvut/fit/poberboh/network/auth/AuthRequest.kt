@@ -1,4 +1,4 @@
-package cz.cvut.fit.poberboh.auth
+package cz.cvut.fit.poberboh.network.auth
 
 import kotlinx.serialization.Serializable
 
