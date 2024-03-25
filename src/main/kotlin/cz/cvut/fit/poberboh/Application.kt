@@ -1,7 +1,5 @@
 package cz.cvut.fit.poberboh
 
-import cz.cvut.fit.poberboh.data.users.UserEntityDao
-import cz.cvut.fit.poberboh.data.users.UserEntityDaoImpl
 import cz.cvut.fit.poberboh.database.DatabaseSingleton
 import cz.cvut.fit.poberboh.plugins.*
 import cz.cvut.fit.poberboh.security.hashing.SHA256HashingService
@@ -16,13 +14,12 @@ fun main(args: Array<String>) {
 fun Application.module() {
     DatabaseSingleton.init()
 
-    val userEntityDao: UserEntityDao = UserEntityDaoImpl()
     val tokenService = JwtTokenService()
     val tokenConfig = environment.createTokenConfig()
     val hashingService = SHA256HashingService()
 
     configureSecurity(tokenConfig)
-    configureRouting(userEntityDao, hashingService, tokenService, tokenConfig)
+    configureRouting(hashingService, tokenService, tokenConfig)
     configureMonitoring()
     configureSerialization()
 }

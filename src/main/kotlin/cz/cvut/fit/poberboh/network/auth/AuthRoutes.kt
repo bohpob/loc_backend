@@ -1,4 +1,4 @@
-package cz.cvut.fit.poberboh.auth
+package cz.cvut.fit.poberboh.network.auth
 
 import cz.cvut.fit.poberboh.data.users.UserEntityDao
 import cz.cvut.fit.poberboh.security.hashing.HashingService
@@ -95,12 +95,16 @@ fun Route.login(
             TokenClaim(
                 name = "userId",
                 value = user.id.toString()
+            ),
+            TokenClaim(
+                name = "username",
+                value = user.username
             )
         )
 
         call.respond(
             status = HttpStatusCode.OK,
-            message = AuthResponse(
+            message = TokenResponse(
                 token = token
             )
         )
@@ -109,8 +113,10 @@ fun Route.login(
 
 fun Route.authenticate() {
     authenticate {
-        get("authenticate") {
+        get {
             call.respond(HttpStatusCode.OK)
         }
     }
 }
+
+//@todo logout
