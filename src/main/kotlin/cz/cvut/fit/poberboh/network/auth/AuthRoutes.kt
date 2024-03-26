@@ -1,8 +1,11 @@
 package cz.cvut.fit.poberboh.network.auth
 
 import cz.cvut.fit.poberboh.data.users.UserEntityDao
+import cz.cvut.fit.poberboh.di.DaoProvider
 import cz.cvut.fit.poberboh.security.hashing.HashingService
+import cz.cvut.fit.poberboh.security.hashing.SHA256HashingService
 import cz.cvut.fit.poberboh.security.hashing.SaltedHash
+import cz.cvut.fit.poberboh.security.token.JwtTokenService
 import cz.cvut.fit.poberboh.security.token.TokenClaim
 import cz.cvut.fit.poberboh.security.token.TokenConfig
 import cz.cvut.fit.poberboh.security.token.TokenService
@@ -12,6 +15,15 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+
+fun Route.configureAuthApi(tokenConfig: TokenConfig) {
+    val tokenService = JwtTokenService()
+    val hashingService = SHA256HashingService()
+
+    login(hashingService, DaoProvider.provideUserEntityDao(), tokenService, tokenConfig)
+    register(hashingService, DaoProvider.provideUserEntityDao())
+    authenticate()
+}
 
 fun Route.register(
     hashingService: HashingService,
@@ -119,4 +131,4 @@ fun Route.authenticate() {
     }
 }
 
-//@todo logout
+//@todo post("auth/logout") logout

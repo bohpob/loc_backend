@@ -15,82 +15,92 @@ import java.time.ZoneOffset
 
 fun Route.configureIncidentApi(userEntityDao: UserEntityDao, incidentDao: IncidentDao, gpsIncidentDao: GPSIncidentDao) {
     authenticate {
-        post {
-            val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.getClaim("userId", String::class)
+        createIncident(userEntityDao, incidentDao)
+        switch(userEntityDao, incidentDao)
+        createGPSIncident(userEntityDao, incidentDao, gpsIncidentDao)
+    }
+}
 
-            if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
-                val incident = call.receive<IncidentRequest>()
+fun Route.createIncident(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
+    post {
+        val principal = call.principal<JWTPrincipal>()
+        val userId = principal?.getClaim("userId", String::class)
 
+        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
+            val incident = call.receive<IncidentRequest>()
+
+            call.respond(
+                status = HttpStatusCode.OK,
+                incidentDao.createIncident(userId.toLong(), incident.category, incident.note)!! //@todo
+            )
+        } else {
+            call.respond(
+                status = HttpStatusCode.NotFound,
+                message = "User not found"
+            )
+        }
+    }
+}
+
+fun Route.switch(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
+    patch("switch/{id?}") {
+        val principal = call.principal<JWTPrincipal>()
+        val userId = principal?.getClaim("userId", String::class)
+
+        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
+            val incidentId = call.parameters["id"]
+            if (incidentId != null && incidentDao.readIncidentById(incidentId.toLong()) != null) {
+                if (incidentDao.switchState(incidentId.toLong())) { //@todo
+                    call.respond(status = HttpStatusCode.OK, message = "OK")
+                } else {
+                    call.respond(status = HttpStatusCode.Conflict, message = "")
+                }
+            } else {
+                call.respond(
+                    status = HttpStatusCode.NotFound,
+                    message = "Incident not found"
+                )
+            }
+        } else {
+            call.respond(
+                status = HttpStatusCode.NotFound,
+                message = "User not found"
+            )
+        }
+    }
+}
+
+fun Route.createGPSIncident(userEntityDao: UserEntityDao, incidentDao: IncidentDao, gpsIncidentDao: GPSIncidentDao) {
+    post("{id?}") {
+        val principal = call.principal<JWTPrincipal>()
+        val userId = principal?.getClaim("userId", String::class)
+
+        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
+            val gpsIncident = call.receive<GPSIncidentRequest>()
+            val incidentId = call.parameters["id"]
+            val timestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(2)) // UTC + 2 @todo
+
+            if (incidentId != null && incidentDao.readIncidentById(incidentId.toLong()) != null) {
                 call.respond(
                     status = HttpStatusCode.OK,
-                    incidentDao.createIncident(userId.toLong(), incident.category, incident.note)!! //@todo
+                    gpsIncidentDao.createGPSIncident(
+                        incidentId.toLong(),
+                        gpsIncident.gpsX,
+                        gpsIncident.gpsY,
+                        timestamp
+                    )!! //@todo
                 )
             } else {
                 call.respond(
                     status = HttpStatusCode.NotFound,
-                    message = "User not found"
+                    message = "Incident not found"
                 )
             }
-        }
-
-        patch("switch/{id?}") {
-            val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.getClaim("userId", String::class)
-
-            if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
-                val incidentId = call.parameters["id"]
-                if (incidentId != null && incidentDao.readIncidentById(incidentId.toLong()) != null) {
-                    if (incidentDao.switchState(incidentId.toLong())) { //@todo
-                        call.respond(status = HttpStatusCode.OK, message = "OK")
-                    } else {
-                        call.respond(status = HttpStatusCode.Conflict, message = "")
-                    }
-                } else {
-                    call.respond(
-                        status = HttpStatusCode.NotFound,
-                        message = "Incident not found"
-                    )
-                }
-            } else {
-                call.respond(
-                    status = HttpStatusCode.NotFound,
-                    message = "User not found"
-                )
-            }
-        }
-
-        post("{id?}") {
-            val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.getClaim("userId", String::class)
-
-            if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
-                val gpsIncident = call.receive<GPSIncidentRequest>()
-                val incidentId = call.parameters["id"]
-                val timestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(2)) // UTC + 2 @todo
-
-                if (incidentId != null && incidentDao.readIncidentById(incidentId.toLong()) != null) {
-                    call.respond(
-                        status = HttpStatusCode.OK,
-                        gpsIncidentDao.createGPSIncident(
-                            incidentId.toLong(),
-                            gpsIncident.gpsX,
-                            gpsIncident.gpsY,
-                            timestamp
-                        )!! //@todo
-                    )
-                } else {
-                    call.respond(
-                        status = HttpStatusCode.NotFound,
-                        message = "Incident not found"
-                    )
-                }
-            } else {
-                call.respond(
-                    status = HttpStatusCode.NotFound,
-                    message = "User not found"
-                )
-            }
+        } else {
+            call.respond(
+                status = HttpStatusCode.NotFound,
+                message = "User not found"
+            )
         }
     }
 }
