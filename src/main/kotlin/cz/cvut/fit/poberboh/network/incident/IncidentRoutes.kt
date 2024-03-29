@@ -22,7 +22,7 @@ fun Route.configureIncidentApi(userEntityDao: UserEntityDao, incidentDao: Incide
 }
 
 fun Route.createIncident(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
-    post {
+    post("new") {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
@@ -43,18 +43,17 @@ fun Route.createIncident(userEntityDao: UserEntityDao, incidentDao: IncidentDao)
 }
 
 fun Route.switch(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
-    patch("switch/{id?}") {
+    patch("switch/{id}") {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
         if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
             val incidentId = call.parameters["id"]
             if (incidentId != null && incidentDao.readIncidentById(incidentId.toLong()) != null) {
-                if (incidentDao.switchState(incidentId.toLong())) { //@todo
-                    call.respond(status = HttpStatusCode.OK, message = "OK")
-                } else {
-                    call.respond(status = HttpStatusCode.Conflict, message = "")
-                }
+                call.respond(
+                    status = HttpStatusCode.OK,
+                    incidentDao.switchState(incidentId.toLong())!!
+                )
             } else {
                 call.respond(
                     status = HttpStatusCode.NotFound,
@@ -71,7 +70,7 @@ fun Route.switch(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
 }
 
 fun Route.createGPSIncident(userEntityDao: UserEntityDao, incidentDao: IncidentDao, gpsIncidentDao: GPSIncidentDao) {
-    post("{id?}") {
+    post("{id}") {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 

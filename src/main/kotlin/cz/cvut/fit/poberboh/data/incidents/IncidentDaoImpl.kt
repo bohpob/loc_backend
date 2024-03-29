@@ -1,6 +1,5 @@
 package cz.cvut.fit.poberboh.data.incidents
 
-import cz.cvut.fit.poberboh.data.State
 import cz.cvut.fit.poberboh.database.DatabaseSingleton.dbQuery
 import cz.cvut.fit.poberboh.database.tables.Incidents
 import org.jetbrains.exposed.sql.*
@@ -22,29 +21,25 @@ class IncidentDaoImpl : IncidentDao {
             .singleOrNull()
     }
 
-    override suspend fun readState(id: Long): State? = dbQuery {
-        val incidentState: State? = Incidents.selectAll()
+    override suspend fun readState(id: Long): Boolean? = dbQuery {
+        val incidentState: Boolean? = Incidents.selectAll()
             .where { Incidents.id eq id }
             .mapNotNull { it[Incidents.state] }
             .singleOrNull()
         incidentState
     }
 
-    override suspend fun switchState(id: Long): Boolean = dbQuery {
+    override suspend fun switchState(id: Long): Boolean? = dbQuery {
         val incident = Incidents.selectAll().where { Incidents.id eq id }.singleOrNull()
-
         if (incident != null) {
             val currentState = incident[Incidents.state]
-            val newState = when (currentState) {
-                State.Activated -> State.Deactivated
-                State.Deactivated -> State.Activated
-            }
-            val rowsAffected = Incidents.update({ Incidents.id eq id }) {
+            val newState = !currentState
+            Incidents.update({ Incidents.id eq id }) {
                 it[state] = newState
             }
-            rowsAffected > 0
+            newState
         } else {
-            false
+            null
         }
     }
 
@@ -53,7 +48,7 @@ class IncidentDaoImpl : IncidentDao {
             val newIncident = Incidents.insert {
                 it[Incidents.userEntityId] = userId
                 it[Incidents.category] = category
-                it[Incidents.state] = State.Activated
+                it[Incidents.state] = true
                 it[Incidents.note] = note
             }
             newIncident.resultedValues?.singleOrNull()?.let(::resultRowToIncident)
