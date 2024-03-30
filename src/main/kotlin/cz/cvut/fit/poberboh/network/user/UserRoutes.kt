@@ -10,24 +10,28 @@ import io.ktor.server.routing.*
 
 fun Route.configureUserApi(userEntityDao: UserEntityDao) {
     authenticate {
-        get("me") {
-            val principal = call.principal<JWTPrincipal>()
-            val userId = principal?.getClaim("userId", String::class)
-            val username = principal?.getClaim("username", String::class)
+        getUser(userEntityDao)
+    }
+}
 
-            if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
-                call.respond(
-                    status = HttpStatusCode.OK,
-                    UserResponse(
-                        username = username
-                    )
+fun Route.getUser(userEntityDao: UserEntityDao) {
+    get("me") {
+        val principal = call.principal<JWTPrincipal>()
+        val userId = principal?.getClaim("userId", String::class)
+        val username = principal?.getClaim("username", String::class)
+
+        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
+            call.respond(
+                status = HttpStatusCode.OK,
+                UserResponse(
+                    username = username
                 )
-            } else {
-                call.respond(
-                    status = HttpStatusCode.NotFound,
-                    message = "User not found"
-                )
-            }
+            )
+        } else {
+            call.respond(
+                status = HttpStatusCode.NotFound,
+                message = "User not found"
+            )
         }
     }
 }
