@@ -1,12 +1,12 @@
-package cz.cvut.fit.poberboh.data.incidents.gps
+package cz.cvut.fit.poberboh.data.incidents.location
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class GPSIncident(
+data class Location(
     val id: Long,
     val incidentId: Long,
-    val gpsX: String,
-    val gpsY: String,
+    val latitude: String,
+    val longitude: String,
     val timestamp: Long
 )

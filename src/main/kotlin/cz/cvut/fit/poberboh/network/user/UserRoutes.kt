@@ -15,7 +15,7 @@ fun Route.configureUserApi(userEntityDao: UserEntityDao) {
 }
 
 fun Route.getUser(userEntityDao: UserEntityDao) {
-    get("me") {
+    get("users/me") {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
         val username = principal?.getClaim("username", String::class)

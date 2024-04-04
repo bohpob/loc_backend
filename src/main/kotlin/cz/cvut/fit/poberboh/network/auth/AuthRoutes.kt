@@ -130,5 +130,3 @@ fun Route.authenticate() {
         }
     }
 }
-
-//@todo post("auth/logout") logout
