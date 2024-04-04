@@ -1,7 +1,7 @@
 package cz.cvut.fit.poberboh.network.incident
 
 import cz.cvut.fit.poberboh.data.incidents.IncidentDao
-import cz.cvut.fit.poberboh.data.incidents.gps.GPSIncidentDao
+import cz.cvut.fit.poberboh.data.incidents.location.LocationDao
 import cz.cvut.fit.poberboh.data.users.UserEntityDao
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -13,51 +13,32 @@ import io.ktor.server.routing.*
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
-fun Route.configureIncidentApi(userEntityDao: UserEntityDao, incidentDao: IncidentDao, gpsIncidentDao: GPSIncidentDao) {
+fun Route.configureIncidentApi(userEntityDao: UserEntityDao, incidentDao: IncidentDao, locationDao: LocationDao) {
     authenticate {
         createIncident(userEntityDao, incidentDao)
-        switch(userEntityDao, incidentDao)
-        createGPSIncident(userEntityDao, incidentDao, gpsIncidentDao)
+        stopShare(userEntityDao, incidentDao)
+        recordLocation(userEntityDao, incidentDao, locationDao)
     }
 }
 
 fun Route.createIncident(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
-    post("new") {
+    post {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
         if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
             val incident = call.receive<IncidentRequest>()
 
-            call.respond(
-                status = HttpStatusCode.OK,
-                incidentDao.createIncident(userId.toLong(), incident.category, incident.note)!! //@todo
-            )
-        } else {
-            call.respond(
-                status = HttpStatusCode.NotFound,
-                message = "User not found"
-            )
-        }
-    }
-}
-
-fun Route.switch(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
-    patch("switch/{id}") {
-        val principal = call.principal<JWTPrincipal>()
-        val userId = principal?.getClaim("userId", String::class)
-
-        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
-            val incidentId = call.parameters["id"]
-            if (incidentId != null && incidentDao.readIncidentById(incidentId.toLong()) != null) {
+            val incidentResponse = incidentDao.createIncident(userId.toLong(), incident.category, incident.note)
+            if (incidentResponse != null) {
                 call.respond(
-                    status = HttpStatusCode.OK,
-                    incidentDao.switchState(incidentId.toLong())!!
+                    status = HttpStatusCode.Created,
+                    incidentResponse
                 )
             } else {
                 call.respond(
-                    status = HttpStatusCode.NotFound,
-                    message = "Incident not found"
+                    status = HttpStatusCode.InternalServerError,
+                    message = "Failed to create incident"
                 )
             }
         } else {
@@ -69,26 +50,70 @@ fun Route.switch(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
     }
 }
 
-fun Route.createGPSIncident(userEntityDao: UserEntityDao, incidentDao: IncidentDao, gpsIncidentDao: GPSIncidentDao) {
-    post("{id}") {
+fun Route.stopShare(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
+    patch("{id}") {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
         if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
-            val gpsIncident = call.receive<GPSIncidentRequest>()
             val incidentId = call.parameters["id"]
-            val timestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(2)) // UTC + 2 @todo
 
-            if (incidentId != null && incidentDao.readIncidentById(incidentId.toLong()) != null) {
+            if (incidentId != null) {
+                if (incidentDao.stopShare(incidentId.toLong())) {
+                    call.respond(
+                        status = HttpStatusCode.OK,
+                        message = "Incident sharing stopped"
+                    )
+                } else {
+                    call.respond(
+                        status = HttpStatusCode.InternalServerError,
+                        message = "Failed to stop sharing incident"
+                    )
+                }
+            } else {
                 call.respond(
-                    status = HttpStatusCode.OK,
-                    gpsIncidentDao.createGPSIncident(
-                        incidentId.toLong(),
-                        gpsIncident.gpsX,
-                        gpsIncident.gpsY,
-                        timestamp
-                    )!! //@todo
+                    status = HttpStatusCode.InternalServerError,
+                    message = "Failed to stop sharing incident"
                 )
+            }
+        } else {
+            call.respond(
+                status = HttpStatusCode.NotFound,
+                message = "User not found"
+            )
+        }
+    }
+}
+
+fun Route.recordLocation(userEntityDao: UserEntityDao, incidentDao: IncidentDao, locationDao: LocationDao) {
+    post("locations") {
+        val timestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(2))
+
+        val principal = call.principal<JWTPrincipal>()
+        val userId = principal?.getClaim("userId", String::class)
+
+        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
+            val locationRequest = call.receive<LocationRequest>()
+
+            if (incidentDao.readIncidentById(locationRequest.incidentId) != null) {
+                val locationResponse = locationDao.recordLocation(
+                    incidentId = locationRequest.incidentId,
+                    latitude = locationRequest.latitude,
+                    longitude = locationRequest.longitude,
+                    timestamp
+                )
+
+                if (locationResponse != null) {
+                    call.respond(
+                        status = HttpStatusCode.Created,
+                        "Location recorded"
+                    )
+                } else {
+                    call.respond(
+                        status = HttpStatusCode.InternalServerError,
+                        message = "Failed to record location"
+                    )
+                }
             } else {
                 call.respond(
                     status = HttpStatusCode.NotFound,

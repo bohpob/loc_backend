@@ -11,7 +11,7 @@ class IncidentDaoImpl : IncidentDao {
     }
 
     override suspend fun readAllIncidentsByUserId(id: Long): List<Incident> = dbQuery {
-        Incidents.selectAll().where { Incidents.userEntityId eq id }
+        Incidents.selectAll().where { Incidents.userId eq id }
             .map(::resultRowToIncident)
     }
 
@@ -29,26 +29,22 @@ class IncidentDaoImpl : IncidentDao {
         incidentState
     }
 
-    override suspend fun switchState(id: Long): Boolean? = dbQuery {
+    override suspend fun stopShare(id: Long): Boolean = dbQuery {
         val incident = Incidents.selectAll().where { Incidents.id eq id }.singleOrNull()
         if (incident != null) {
-            val currentState = incident[Incidents.state]
-            val newState = !currentState
-            Incidents.update({ Incidents.id eq id }) {
-                it[state] = newState
-            }
-            newState
+            Incidents.update({ Incidents.id eq id }) { it[state] = false }
+            true
         } else {
-            null
+            false
         }
     }
 
     override suspend fun createIncident(userId: Long, category: String, note: String?): Incident? =
         dbQuery {
             val newIncident = Incidents.insert {
-                it[Incidents.userEntityId] = userId
+                it[Incidents.userId] = userId
                 it[Incidents.category] = category
-                it[Incidents.state] = true
+                it[state] = true
                 it[Incidents.note] = note
             }
             newIncident.resultedValues?.singleOrNull()?.let(::resultRowToIncident)
@@ -60,7 +56,7 @@ class IncidentDaoImpl : IncidentDao {
 
     private fun resultRowToIncident(row: ResultRow) = Incident(
         id = row[Incidents.id],
-        userEntityId = row[Incidents.userEntityId],
+        userEntityId = row[Incidents.userId],
         category = row[Incidents.category],
         state = row[Incidents.state],
         note = row[Incidents.note]

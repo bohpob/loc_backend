@@ -23,7 +23,7 @@ fun Application.configureRouting(
                 configureIncidentApi(
                     DaoProvider.provideUserEntityDao(),
                     DaoProvider.provideIncidentDao(),
-                    DaoProvider.provideGPSIncidentDao()
+                    DaoProvider.provideLocationDao()
                 )
             }
         }
