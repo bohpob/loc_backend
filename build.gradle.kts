@@ -11,7 +11,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.23"
 }
 
-group = "cz.cvut.fit.poberboh"
+group = "cz.cvut.fit.poberboh.loc_backend"
 version = "0.0.1"
 
 application {
