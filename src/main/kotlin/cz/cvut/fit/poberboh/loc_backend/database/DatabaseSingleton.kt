@@ -2,7 +2,9 @@ package cz.cvut.fit.poberboh.loc_backend.database
 
 import cz.cvut.fit.poberboh.loc_backend.database.tables.Incidents
 import cz.cvut.fit.poberboh.loc_backend.database.tables.Locations
-import cz.cvut.fit.poberboh.loc_backend.database.tables.UserEntities
+import cz.cvut.fit.poberboh.loc_backend.database.tables.Users
+import cz.cvut.fit.poberboh.loc_backend.database.tables.archive.ArchiveIncidents
+import cz.cvut.fit.poberboh.loc_backend.database.tables.archive.ArchiveLocations
 import kotlinx.coroutines.Dispatchers
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -25,9 +27,7 @@ object DatabaseSingleton {
         )
 
         transaction(database) {
-            SchemaUtils.create(UserEntities)
-            SchemaUtils.create(Incidents)
-            SchemaUtils.create(Locations)
+            SchemaUtils.create(Users, Incidents, Locations, ArchiveIncidents, ArchiveLocations)
         }
     }
 

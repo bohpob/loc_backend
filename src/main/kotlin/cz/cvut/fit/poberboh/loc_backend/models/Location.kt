@@ -1,4 +1,4 @@
-package cz.cvut.fit.poberboh.loc_backend.data.incidents.location
+package cz.cvut.fit.poberboh.loc_backend.models
 
 import kotlinx.serialization.Serializable
 
@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 data class Location(
     val id: Long,
     val incidentId: Long,
-    val latitude: String,
-    val longitude: String,
+    val latitude: Double,
+    val longitude: Double,
     val timestamp: Long
 )

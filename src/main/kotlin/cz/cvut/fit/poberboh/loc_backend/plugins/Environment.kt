@@ -8,6 +8,7 @@ fun ApplicationEnvironment.createTokenConfig(): TokenConfig {
         issuer = config.property("jwt.issuer").getString(),
         audience = config.property("jwt.audience").getString(),
         expiresIn = config.property("jwt.expiresIn").getString().toLong(),
+        refreshIn = config.property("jwt.refreshIn").getString().toLong(),
         secret = config.property("jwt.secret").getString()
     )
 }

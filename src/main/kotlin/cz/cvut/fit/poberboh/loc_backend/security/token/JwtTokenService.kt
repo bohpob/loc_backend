@@ -5,11 +5,19 @@ import com.auth0.jwt.algorithms.Algorithm
 import java.util.*
 
 class JwtTokenService : TokenService {
-    override fun generate(config: TokenConfig, vararg claims: TokenClaim): String {
+    override fun createAccessToken(config: TokenConfig, vararg claims: TokenClaim): String {
+        return generate(config, *claims, expiresIn = config.expiresIn)
+    }
+
+    override fun createRefreshToken(config: TokenConfig, vararg claims: TokenClaim): String {
+        return generate(config, *claims, expiresIn = config.refreshIn)
+    }
+
+    private fun generate(config: TokenConfig, vararg claims: TokenClaim, expiresIn: Long): String {
         var token = JWT.create()
             .withAudience(config.audience)
             .withIssuer(config.issuer)
-            .withExpiresAt(Date(System.currentTimeMillis() + config.expiresIn))
+            .withExpiresAt(Date(System.currentTimeMillis() + expiresIn))
         claims.forEach { claim ->
             token = token.withClaim(claim.name, claim.value)
         }

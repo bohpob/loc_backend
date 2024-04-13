@@ -1,7 +1,11 @@
 package cz.cvut.fit.poberboh.loc_backend.network.auth
 
-import cz.cvut.fit.poberboh.loc_backend.data.users.UserEntityDao
+import com.auth0.jwt.JWT
+import com.auth0.jwt.exceptions.JWTDecodeException
+import com.auth0.jwt.interfaces.DecodedJWT
+import cz.cvut.fit.poberboh.loc_backend.dao.users.UserDao
 import cz.cvut.fit.poberboh.loc_backend.di.DaoProvider
+import cz.cvut.fit.poberboh.loc_backend.models.User
 import cz.cvut.fit.poberboh.loc_backend.security.hashing.HashingService
 import cz.cvut.fit.poberboh.loc_backend.security.hashing.SHA256HashingService
 import cz.cvut.fit.poberboh.loc_backend.security.hashing.SaltedHash
@@ -15,51 +19,83 @@ import io.ktor.server.auth.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import java.util.*
 
 fun Route.configureAuthApi(tokenConfig: TokenConfig) {
     val tokenService = JwtTokenService()
     val hashingService = SHA256HashingService()
+    val userDao = DaoProvider.provideUserEntityDao()
 
-    login(hashingService, DaoProvider.provideUserEntityDao(), tokenService, tokenConfig)
-    register(hashingService, DaoProvider.provideUserEntityDao())
-    authenticate()
+    login(hashingService, userDao, tokenService, tokenConfig)
+    register(hashingService, userDao)
+    refresh(tokenService, tokenConfig, userDao)
+    authenticateRoute()
+}
+
+fun Route.refresh(
+    tokenService: TokenService,
+    tokenConfig: TokenConfig,
+    userDao: UserDao
+) {
+    post("refresh") {
+        val request = call.receiveNullable<RefreshToken>() ?: return@post call.respond(HttpStatusCode.Conflict)
+
+        if (request.refreshToken == null) {
+            return@post call.respond(HttpStatusCode.Conflict)
+        }
+
+        try {
+            val jwt: DecodedJWT = JWT.decode(request.refreshToken)
+
+            if (jwt.expiresAt.before(Date())) {
+                return@post call.respond(HttpStatusCode.Conflict)
+            }
+
+            val userIdRefreshToken = jwt.getClaim("userId").asString()
+            val userId = RefreshTokens.readUserByRefreshToken(request.refreshToken)
+
+            if (userId != null && userIdRefreshToken == userId) {
+                val user = userDao.readById(userId.toLong())
+                    ?: return@post call.respond(HttpStatusCode.Conflict)
+
+                val (token, refreshToken) = createTokens(tokenService, tokenConfig, user)
+                return@post call.respond(HttpStatusCode.OK, TokenResponse(token, refreshToken))
+            }
+        } catch (e: JWTDecodeException) {
+            return@post call.respond(HttpStatusCode.Conflict)
+        }
+        call.respond(HttpStatusCode.BadRequest)
+    }
 }
 
 fun Route.register(
     hashingService: HashingService,
-    userEntityDao: UserEntityDao
+    userDao: UserDao
 ) {
     post("register") {
-        val request = call.receiveNullable<AuthRequest>() ?: kotlin.run {
-            call.respond(HttpStatusCode.BadRequest)
-            return@post
-        }
+        val request = call.receiveNullable<AuthRequest>() ?: return@post call.respond(HttpStatusCode.BadRequest)
 
-        if (userEntityDao.readUserByUsername(request.username) != null) {
-            call.respond(HttpStatusCode.Conflict, "A user with the same username is already registered")
-            return@post
+        if (userDao.readByUsername(request.username) != null) {
+            return@post call.respond(HttpStatusCode.Conflict, "A user with the same username is already registered")
         }
 
         if (request.username.isBlank() || request.password.isBlank()) {
-            call.respond(HttpStatusCode.Conflict, "Username or password is empty")
-            return@post
+            return@post call.respond(HttpStatusCode.Conflict, "Username or password is empty")
         }
 
         if (request.password.length < 8) {
-            call.respond(HttpStatusCode.Conflict, "Password is too short")
-            return@post
+            return@post call.respond(HttpStatusCode.Conflict, "Password is too short")
         }
 
         val saltedHash = hashingService.generateSaltedHash(request.password)
-        val user = userEntityDao.createUser(
+        val user = userDao.create(
             username = request.username,
             password = saltedHash.hash,
             salt = saltedHash.salt
         )
 
         if (user == null) {
-            call.respond(HttpStatusCode.Conflict)
-            return@post
+            return@post call.respond(HttpStatusCode.Conflict)
         }
 
         call.respond(HttpStatusCode.OK, "Registration successful")
@@ -68,26 +104,19 @@ fun Route.register(
 
 fun Route.login(
     hashingService: HashingService,
-    userEntityDao: UserEntityDao,
+    userDao: UserDao,
     tokenService: TokenService,
     tokenConfig: TokenConfig
 ) {
     post("login") {
-        val request = call.receiveNullable<AuthRequest>() ?: kotlin.run {
-            call.respond(HttpStatusCode.BadRequest)
-            return@post
-        }
+        val request = call.receiveNullable<AuthRequest>() ?: return@post call.respond(HttpStatusCode.BadRequest)
 
         if (request.username.isBlank() || request.password.isBlank()) {
-            call.respond(HttpStatusCode.Conflict, "Username or password is empty")
-            return@post
+            return@post call.respond(HttpStatusCode.Conflict, "Username or password is empty")
         }
 
-        val user = userEntityDao.readUserByUsername(request.username)
-        if (user == null) {
-            call.respond(HttpStatusCode.Conflict, "Incorrect username or password")
-            return@post
-        }
+        val user = userDao.readByUsername(request.username)
+            ?: return@post call.respond(HttpStatusCode.Conflict, "Incorrect username or password")
 
         val isValidPassword = hashingService.verify(
             value = request.password,
@@ -98,32 +127,32 @@ fun Route.login(
         )
 
         if (!isValidPassword) {
-            call.respond(HttpStatusCode.Conflict, "Invalid password")
-            return@post
+            return@post call.respond(HttpStatusCode.Conflict, "Invalid password")
         }
 
-        val token = tokenService.generate(
-            config = tokenConfig,
-            TokenClaim(
-                name = "userId",
-                value = user.id.toString()
-            ),
-            TokenClaim(
-                name = "username",
-                value = user.username
-            )
-        )
+        val (token, refreshToken) = createTokens(tokenService, tokenConfig, user)
 
-        call.respond(
-            status = HttpStatusCode.OK,
-            message = TokenResponse(
-                token = token
-            )
-        )
+        call.respond(HttpStatusCode.OK, TokenResponse(token, refreshToken))
     }
 }
 
-fun Route.authenticate() {
+private fun createTokens(tokenService: TokenService, tokenConfig: TokenConfig, user: User): TokenResponse {
+    val token = tokenService.createAccessToken(
+        tokenConfig,
+        TokenClaim("userId", user.id.toString()),
+        TokenClaim("username", user.username)
+    )
+
+    val refreshToken = tokenService.createRefreshToken(
+        tokenConfig,
+        TokenClaim("userId", user.id.toString())
+    )
+    RefreshTokens.addRefreshToken(user.id.toString(), refreshToken)
+
+    return TokenResponse(token, refreshToken)
+}
+
+fun Route.authenticateRoute() {
     authenticate {
         get {
             call.respond(HttpStatusCode.OK)

@@ -1,8 +1,9 @@
 package cz.cvut.fit.poberboh.loc_backend.network.incident
 
-import cz.cvut.fit.poberboh.loc_backend.data.incidents.IncidentDao
-import cz.cvut.fit.poberboh.loc_backend.data.incidents.location.LocationDao
-import cz.cvut.fit.poberboh.loc_backend.data.users.UserEntityDao
+import cz.cvut.fit.poberboh.loc_backend.dao.incidents.IncidentDao
+import cz.cvut.fit.poberboh.loc_backend.dao.incidents.location.LocationDao
+import cz.cvut.fit.poberboh.loc_backend.dao.users.UserDao
+import cz.cvut.fit.poberboh.loc_backend.di.DaoProvider
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -13,118 +14,111 @@ import io.ktor.server.routing.*
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
-fun Route.configureIncidentApi(userEntityDao: UserEntityDao, incidentDao: IncidentDao, locationDao: LocationDao) {
+fun Route.configureIncidentApi() {
+    val userDao = DaoProvider.provideUserEntityDao()
+    val incidentDao = DaoProvider.provideIncidentDao()
+    val locationDao = DaoProvider.provideLocationDao()
+
     authenticate {
-        createIncident(userEntityDao, incidentDao)
-        stopShare(userEntityDao, incidentDao)
-        recordLocation(userEntityDao, incidentDao, locationDao)
+        createIncident(userDao, incidentDao)
+        stopShare(userDao, incidentDao, locationDao)
+        recordLocation(userDao, incidentDao, locationDao)
+    }
+
+    readNearestLocations(locationDao)
+}
+
+fun Route.readNearestLocations(locationDao: LocationDao) {
+    get {
+        val request = call.receive<LocationRequest>()
+
+        if (request.latitude == null || request.longitude == null) {
+            call.respond(HttpStatusCode.BadRequest, "Latitude and longitude must be provided")
+            return@get
+        }
+
+        val locations = locationDao.readNearestLocations(
+            latitude = request.latitude,
+            longitude = request.longitude
+        )
+        call.respond(HttpStatusCode.OK, locations)
     }
 }
 
-fun Route.createIncident(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
+fun Route.createIncident(userDao: UserDao, incidentDao: IncidentDao) {
     post {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
-        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
+        if (userId != null && userDao.readById(userId.toLong()) != null) {
             val incident = call.receive<IncidentRequest>()
+            val incidentResponse = incidentDao.create(userId.toLong(), incident.category, incident.note)
 
-            val incidentResponse = incidentDao.createIncident(userId.toLong(), incident.category, incident.note)
-            if (incidentResponse != null) {
-                call.respond(
-                    status = HttpStatusCode.Created,
-                    incidentResponse
-                )
-            } else {
-                call.respond(
-                    status = HttpStatusCode.InternalServerError,
-                    message = "Failed to create incident"
-                )
-            }
+            val statusCode =
+                if (incidentResponse != null) HttpStatusCode.Created else HttpStatusCode.InternalServerError
+            call.respond(status = statusCode, incidentResponse ?: "Failed to create incident")
         } else {
-            call.respond(
-                status = HttpStatusCode.NotFound,
-                message = "User not found"
-            )
+            call.respond(HttpStatusCode.NotFound, "User not found")
         }
     }
 }
 
-fun Route.stopShare(userEntityDao: UserEntityDao, incidentDao: IncidentDao) {
+fun Route.stopShare(userDao: UserDao, incidentDao: IncidentDao, locationDao: LocationDao) {
     patch("{id}") {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
-        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
+        if (userId != null && userDao.readById(userId.toLong()) != null) {
             val incidentId = call.parameters["id"]
 
-            if (incidentId != null) {
-                if (incidentDao.stopShare(incidentId.toLong())) {
-                    call.respond(
-                        status = HttpStatusCode.OK,
-                        message = "Incident sharing stopped"
-                    )
-                } else {
-                    call.respond(
-                        status = HttpStatusCode.InternalServerError,
-                        message = "Failed to stop sharing incident"
-                    )
-                }
-            } else {
-                call.respond(
-                    status = HttpStatusCode.InternalServerError,
-                    message = "Failed to stop sharing incident"
-                )
-            }
-        } else {
+            val incident = incidentId?.toLong()?.let { incidentDao.readById(it) }
+            val locations = incident?.id?.let { locationDao.readAllByIncidentId(it) }
+
+            val success = incident != null && locations != null && incidentDao.stopShare(incident, locations)
+            val statusCode = if (success) HttpStatusCode.OK else HttpStatusCode.InternalServerError
+
             call.respond(
-                status = HttpStatusCode.NotFound,
-                message = "User not found"
+                status = statusCode,
+                if (success) "Incident sharing stopped" else "Failed to stop sharing incident"
             )
+        } else {
+            call.respond(HttpStatusCode.NotFound, "User not found")
         }
     }
 }
 
-fun Route.recordLocation(userEntityDao: UserEntityDao, incidentDao: IncidentDao, locationDao: LocationDao) {
+fun Route.recordLocation(userDao: UserDao, incidentDao: IncidentDao, locationDao: LocationDao) {
     post("locations") {
         val timestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(2))
 
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
-        if (userId != null && userEntityDao.readUserById(userId.toLong()) != null) {
-            val locationRequest = call.receive<LocationRequest>()
+        if (userId != null && userDao.readById(userId.toLong()) != null) {
+            val request = call.receive<RecordLocationRequest>()
+            val incident = incidentDao.readById(request.incidentId)
 
-            if (incidentDao.readIncidentById(locationRequest.incidentId) != null) {
-                val locationResponse = locationDao.recordLocation(
-                    incidentId = locationRequest.incidentId,
-                    latitude = locationRequest.latitude,
-                    longitude = locationRequest.longitude,
-                    timestamp
-                )
+            val statusCode = when {
+                incident == null -> HttpStatusCode.NotFound to "Incident not found"
+                else -> {
+                    val locationResponse = locationDao.recordLocation(
+                        incidentId = request.incidentId,
+                        latitude = request.latitude,
+                        longitude = request.longitude,
+                        timestamp
+                    )
+                    val success = locationResponse != null && incidentDao.updateLastLocation(
+                        locationResponse.id,
+                        request.incidentId
+                    )
 
-                if (locationResponse != null) {
-                    call.respond(
-                        status = HttpStatusCode.Created,
-                        "Location recorded"
-                    )
-                } else {
-                    call.respond(
-                        status = HttpStatusCode.InternalServerError,
-                        message = "Failed to record location"
-                    )
+                    if (success) HttpStatusCode.Created to "Location recorded"
+                    else HttpStatusCode.InternalServerError to "Failed to record location"
                 }
-            } else {
-                call.respond(
-                    status = HttpStatusCode.NotFound,
-                    message = "Incident not found"
-                )
             }
+            call.respond(status = statusCode.first, statusCode.second)
         } else {
-            call.respond(
-                status = HttpStatusCode.NotFound,
-                message = "User not found"
-            )
+            call.respond(HttpStatusCode.NotFound, "User not found")
         }
     }
 }

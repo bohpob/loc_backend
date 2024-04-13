@@ -1,9 +1,9 @@
-package cz.cvut.fit.poberboh.loc_backend.data.users
+package cz.cvut.fit.poberboh.loc_backend.models
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class UserEntity(
+data class User(
     val id: Long,
     val username: String,
     val password: String,
