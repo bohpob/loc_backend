@@ -12,18 +12,13 @@ import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransacti
 import org.jetbrains.exposed.sql.transactions.transaction
 
 object DatabaseSingleton {
-    fun init() {
-        val databaseName = "loc_db" // need to hide
-        val user = "postgres"       // need to hide
-        val password = "postgres"   // need to hide
-        val host = "localhost"      //
-        val port = "5432"           //
+    fun init(databaseConfig: DatabaseConfig) {
 
         val database = Database.connect(
-            url = "jdbc:postgresql://$host:$port/$databaseName",
-            driver = "org.postgresql.Driver",
-            user = user,
-            password = password
+            url = databaseConfig.url,
+            driver = databaseConfig.driver,
+            user = databaseConfig.user,
+            password = databaseConfig.password
         )
 
         transaction(database) {

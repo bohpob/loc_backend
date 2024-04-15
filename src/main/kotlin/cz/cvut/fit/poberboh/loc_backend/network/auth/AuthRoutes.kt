@@ -88,15 +88,9 @@ fun Route.register(
         }
 
         val saltedHash = hashingService.generateSaltedHash(request.password)
-        val user = userDao.create(
-            username = request.username,
-            password = saltedHash.hash,
-            salt = saltedHash.salt
-        )
 
-        if (user == null) {
-            return@post call.respond(HttpStatusCode.Conflict)
-        }
+        userDao.create(request.username, saltedHash.hash, saltedHash.salt)
+            ?: return@post call.respond(HttpStatusCode.Conflict)
 
         call.respond(HttpStatusCode.OK, "Registration successful")
     }
@@ -130,14 +124,14 @@ fun Route.login(
             return@post call.respond(HttpStatusCode.Conflict, "Invalid password")
         }
 
-        val (token, refreshToken) = createTokens(tokenService, tokenConfig, user)
+        val (accessToken, refreshToken) = createTokens(tokenService, tokenConfig, user)
 
-        call.respond(HttpStatusCode.OK, TokenResponse(token, refreshToken))
+        call.respond(HttpStatusCode.OK, TokenResponse(accessToken, refreshToken))
     }
 }
 
 private fun createTokens(tokenService: TokenService, tokenConfig: TokenConfig, user: User): TokenResponse {
-    val token = tokenService.createAccessToken(
+    val accessToken = tokenService.createAccessToken(
         tokenConfig,
         TokenClaim("userId", user.id.toString()),
         TokenClaim("username", user.username)
@@ -149,7 +143,7 @@ private fun createTokens(tokenService: TokenService, tokenConfig: TokenConfig, u
     )
     RefreshTokens.addRefreshToken(user.id.toString(), refreshToken)
 
-    return TokenResponse(token, refreshToken)
+    return TokenResponse(accessToken, refreshToken)
 }
 
 fun Route.authenticateRoute() {

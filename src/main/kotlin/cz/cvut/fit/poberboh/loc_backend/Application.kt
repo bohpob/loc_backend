@@ -9,7 +9,8 @@ fun main(args: Array<String>) {
 
 fun Application.module() {
     val tokenConfig = environment.createTokenConfig()
-    configureDatabase()
+    val databaseConfig = environment.createDatabaseConfig()
+    configureDatabase(databaseConfig)
     configureSecurity(tokenConfig)
     configureRouting(tokenConfig)
     configureMonitoring()
