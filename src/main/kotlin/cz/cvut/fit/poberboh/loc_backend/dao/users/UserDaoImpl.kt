@@ -14,7 +14,7 @@ class UserDaoImpl : UserDao {
         Users.selectAll().map(::resultRowToUserEntity)
     }
 
-    override suspend fun readById(id: Long): User? = dbQuery {
+    override suspend fun read(id: Long): User? = dbQuery {
         Users.selectAll().where { Users.id eq id }
             .mapNotNull(::resultRowToUserEntity)
             .singleOrNull()

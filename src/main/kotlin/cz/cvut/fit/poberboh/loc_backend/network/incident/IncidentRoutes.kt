@@ -1,7 +1,7 @@
 package cz.cvut.fit.poberboh.loc_backend.network.incident
 
 import cz.cvut.fit.poberboh.loc_backend.dao.incidents.IncidentDao
-import cz.cvut.fit.poberboh.loc_backend.dao.incidents.location.LocationDao
+import cz.cvut.fit.poberboh.loc_backend.dao.locations.LocationDao
 import cz.cvut.fit.poberboh.loc_backend.dao.users.UserDao
 import cz.cvut.fit.poberboh.loc_backend.di.DaoProvider
 import io.ktor.http.*
@@ -50,7 +50,7 @@ fun Route.createIncident(userDao: UserDao, incidentDao: IncidentDao) {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
-        if (userId != null && userDao.readById(userId.toLong()) != null) {
+        if (userId != null && userDao.read(userId.toLong()) != null) {
             val incident = call.receive<IncidentRequest>()
             val incidentResponse = incidentDao.create(userId.toLong(), incident.category, incident.note)
 
@@ -68,10 +68,10 @@ fun Route.stopShare(userDao: UserDao, incidentDao: IncidentDao, locationDao: Loc
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
-        if (userId != null && userDao.readById(userId.toLong()) != null) {
+        if (userId != null && userDao.read(userId.toLong()) != null) {
             val incidentId = call.parameters["id"]
 
-            val incident = incidentId?.toLong()?.let { incidentDao.readById(it) }
+            val incident = incidentId?.toLong()?.let { incidentDao.read(it) }
             val locations = incident?.id?.let { locationDao.readAllByIncidentId(it) }
 
             val success = incident != null && locations != null && incidentDao.stopShare(incident, locations)
@@ -94,9 +94,9 @@ fun Route.recordLocation(userDao: UserDao, incidentDao: IncidentDao, locationDao
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 
-        if (userId != null && userDao.readById(userId.toLong()) != null) {
+        if (userId != null && userDao.read(userId.toLong()) != null) {
             val request = call.receive<RecordLocationRequest>()
-            val incident = incidentDao.readById(request.incidentId)
+            val incident = incidentDao.read(request.incidentId)
 
             val statusCode = when {
                 incident == null -> HttpStatusCode.NotFound to "Incident not found"

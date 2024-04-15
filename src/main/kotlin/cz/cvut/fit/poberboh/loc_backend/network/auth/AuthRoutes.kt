@@ -55,7 +55,7 @@ fun Route.refresh(
             val userId = RefreshTokens.readUserByRefreshToken(request.refreshToken)
 
             if (userId != null && userIdRefreshToken == userId) {
-                val user = userDao.readById(userId.toLong())
+                val user = userDao.read(userId.toLong())
                     ?: return@post call.respond(HttpStatusCode.Conflict)
 
                 val (token, refreshToken) = createTokens(tokenService, tokenConfig, user)

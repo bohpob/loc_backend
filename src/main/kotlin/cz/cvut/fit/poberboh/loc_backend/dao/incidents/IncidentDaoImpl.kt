@@ -20,7 +20,7 @@ class IncidentDaoImpl : IncidentDao {
             .map(::resultRowToIncident)
     }
 
-    override suspend fun readById(id: Long): Incident? = dbQuery {
+    override suspend fun read(id: Long): Incident? = dbQuery {
         Incidents.selectAll().where { Incidents.id eq id }
             .mapNotNull(::resultRowToIncident)
             .singleOrNull()

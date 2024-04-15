@@ -1,4 +1,4 @@
-package cz.cvut.fit.poberboh.loc_backend.dao.incidents.location
+package cz.cvut.fit.poberboh.loc_backend.dao.locations
 
 import cz.cvut.fit.poberboh.loc_backend.models.Location
 

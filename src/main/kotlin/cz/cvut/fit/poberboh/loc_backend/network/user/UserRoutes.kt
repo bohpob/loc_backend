@@ -24,7 +24,7 @@ fun Route.readCurrentUser(userDao: UserDao) {
         val username = principal?.getClaim("username", String::class)
 
         if (userId != null) {
-            val user = userDao.readById(userId.toLong())
+            val user = userDao.read(userId.toLong())
             if (user != null) {
                 call.respond(HttpStatusCode.OK, UserResponse(username = username))
             } else {

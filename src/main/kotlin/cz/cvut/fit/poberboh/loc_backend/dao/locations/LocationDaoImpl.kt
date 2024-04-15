@@ -1,4 +1,4 @@
-package cz.cvut.fit.poberboh.loc_backend.dao.incidents.location
+package cz.cvut.fit.poberboh.loc_backend.dao.locations
 
 import cz.cvut.fit.poberboh.loc_backend.database.DatabaseSingleton.dbQuery
 import cz.cvut.fit.poberboh.loc_backend.database.tables.Incidents
@@ -15,12 +15,12 @@ import kotlin.math.sqrt
 class LocationDaoImpl : LocationDao {
     override suspend fun readAllByIncidentId(id: Long): List<Location> = dbQuery {
         Locations.selectAll().where { Locations.incidentId eq id }
-            .map(::resultRowToGPSIncident)
+            .map(::resultRowToLocation)
     }
 
     override suspend fun read(id: Long): Location? = dbQuery {
         Locations.selectAll().where { Locations.id eq id }
-            .mapNotNull(::resultRowToGPSIncident)
+            .mapNotNull(::resultRowToLocation)
             .singleOrNull()
     }
 
@@ -36,7 +36,7 @@ class LocationDaoImpl : LocationDao {
             it[Locations.longitude] = longitude
             it[Locations.timestamp] = timestamp
         }
-        newGPSIncident.resultedValues?.singleOrNull()?.let(::resultRowToGPSIncident)
+        newGPSIncident.resultedValues?.singleOrNull()?.let(::resultRowToLocation)
     }
 
     override suspend fun readNearestLocations(latitude: Double, longitude: Double): List<Location> = dbQuery {
@@ -45,7 +45,7 @@ class LocationDaoImpl : LocationDao {
             .map { it[Incidents.lastLocationId]!! }
 
         val locations = Locations.selectAll().where { Locations.id inList lastLocationIds }
-            .map(::resultRowToGPSIncident)
+            .map(::resultRowToLocation)
 
         locations.filter { calculateDistance(latitude, longitude, it.latitude, it.longitude) < 1 }
     }
@@ -66,7 +66,7 @@ class LocationDaoImpl : LocationDao {
         return earthRadius * centralAngle
     }
 
-    private fun resultRowToGPSIncident(row: ResultRow) = Location(
+    private fun resultRowToLocation(row: ResultRow) = Location(
         id = row[Locations.id],
         incidentId = row[Locations.incidentId],
         latitude = row[Locations.latitude],
