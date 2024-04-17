@@ -64,7 +64,7 @@ fun Route.createIncident(userDao: UserDao, incidentDao: IncidentDao) {
 }
 
 fun Route.stopShare(userDao: UserDao, incidentDao: IncidentDao, locationDao: LocationDao) {
-    patch("{id}") {
+    delete("{id}") {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)
 

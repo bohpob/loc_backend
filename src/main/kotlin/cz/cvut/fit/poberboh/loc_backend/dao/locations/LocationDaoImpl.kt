@@ -13,6 +13,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 class LocationDaoImpl : LocationDao {
+    private val maxDistance = 1.0
+
     override suspend fun readAllByIncidentId(id: Long): List<Location> = dbQuery {
         Locations.selectAll().where { Locations.incidentId eq id }
             .map(::resultRowToLocation)
@@ -47,7 +49,7 @@ class LocationDaoImpl : LocationDao {
         val locations = Locations.selectAll().where { Locations.id inList lastLocationIds }
             .map(::resultRowToLocation)
 
-        locations.filter { calculateDistance(latitude, longitude, it.latitude, it.longitude) < 1 }
+        locations.filter { calculateDistance(latitude, longitude, it.latitude, it.longitude) < maxDistance }
     }
 
     private fun calculateDistance(
