@@ -75,16 +75,13 @@ fun Route.register(
     post("register") {
         val request = call.receiveNullable<AuthRequest>() ?: return@post call.respond(HttpStatusCode.BadRequest)
 
+        val validation = validateLoginInput(request.username, request.password)
+        if (validation != null) {
+            return@post call.respond(HttpStatusCode.Conflict, validation)
+        }
+
         if (userDao.readByUsername(request.username) != null) {
             return@post call.respond(HttpStatusCode.Conflict, "A user with the same username is already registered")
-        }
-
-        if (request.username.isBlank() || request.password.isBlank()) {
-            return@post call.respond(HttpStatusCode.Conflict, "Username or password is empty")
-        }
-
-        if (request.password.length < 8) {
-            return@post call.respond(HttpStatusCode.Conflict, "Password is too short")
         }
 
         val saltedHash = hashingService.generateSaltedHash(request.password)
@@ -105,8 +102,9 @@ fun Route.login(
     post("login") {
         val request = call.receiveNullable<AuthRequest>() ?: return@post call.respond(HttpStatusCode.BadRequest)
 
-        if (request.username.isBlank() || request.password.isBlank()) {
-            return@post call.respond(HttpStatusCode.Conflict, "Username or password is empty")
+        val validation = validateLoginInput(request.username, request.password)
+        if (validation != null) {
+            return@post call.respond(HttpStatusCode.Conflict, validation)
         }
 
         val user = userDao.readByUsername(request.username)
@@ -144,6 +142,23 @@ private fun createTokens(tokenService: TokenService, tokenConfig: TokenConfig, u
     RefreshTokens.addRefreshToken(user.id.toString(), refreshToken)
 
     return TokenResponse(accessToken, refreshToken)
+}
+
+private fun validateLoginInput(username: String, password: String): String? {
+    if (username.isEmpty() || password.isEmpty()) {
+        return "Username and password must not be empty"
+    } else if (password.length < 8) {
+        return "Password must be at least 8 characters"
+    } else if (username.length !in 1..25) {
+        return "Username must be between 1 and 25 characters"
+    } else if (password.contains(" ") || username.contains(" ")) {
+        return "Username and password must not contain spaces"
+    } else if (!username.matches(Regex("^[a-zA-Z0-9]*$")) ||
+        !password.matches(Regex("^[a-zA-Z0-9]*$"))
+    ) {
+        return "Username must contain only english letters and numbers"
+    }
+    return null
 }
 
 fun Route.authenticateRoute() {
