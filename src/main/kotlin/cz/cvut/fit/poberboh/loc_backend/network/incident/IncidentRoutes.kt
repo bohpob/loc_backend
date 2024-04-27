@@ -30,18 +30,27 @@ fun Route.configureIncidentApi() {
 
 fun Route.readNearestLocations(locationDao: LocationDao) {
     get {
-        val request = call.receive<LocationRequest>()
+        val latitude = call.parameters["latitude"]?.toDoubleOrNull()
+        val longitude = call.parameters["longitude"]?.toDoubleOrNull()
 
-        if (request.latitude == null || request.longitude == null) {
+        if (latitude == null || longitude == null) {
             call.respond(HttpStatusCode.BadRequest, "Latitude and longitude must be provided")
             return@get
         }
 
         val locations = locationDao.readNearestLocations(
-            latitude = request.latitude,
-            longitude = request.longitude
+            latitude = latitude,
+            longitude = longitude
         )
-        call.respond(HttpStatusCode.OK, locations)
+
+        val locationResponses = locations.map { location ->
+            LocationResponse(
+                latitude = location.latitude,
+                longitude = location.longitude
+            )
+        }
+
+        call.respond(HttpStatusCode.OK, locationResponses)
     }
 }
 
