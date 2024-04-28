@@ -4,10 +4,12 @@ val logback_version: String by project
 val commons_codec_version: String by project
 val postgresql_jdbc_version: String by project
 val exposed_version: String by project
+val mockk_version: String by project
 
 plugins {
     kotlin("jvm") version "1.9.23"
     id("io.ktor.plugin") version "2.3.9"
+    id("org.jetbrains.dokka") version "1.9.20"
     id("org.jetbrains.kotlin.plugin.serialization") version "1.9.23"
 }
 
@@ -23,6 +25,10 @@ application {
 
 repositories {
     mavenCentral()
+}
+
+subprojects {
+    apply(plugin = "org.jetbrains.dokka")
 }
 
 dependencies {
@@ -46,6 +52,10 @@ dependencies {
     implementation("commons-codec:commons-codec:$commons_codec_version")
 
     implementation("ch.qos.logback:logback-classic:$logback_version")
+
+    testImplementation("io.mockk:mockk:$mockk_version")
+    testImplementation("io.ktor:ktor-server-test-host:$ktor_version")
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:$kotlin_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
 }

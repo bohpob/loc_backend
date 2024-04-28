@@ -11,11 +11,43 @@ import cz.cvut.fit.poberboh.loc_backend.dao.locations.LocationDaoImpl
 import cz.cvut.fit.poberboh.loc_backend.dao.users.UserDao
 import cz.cvut.fit.poberboh.loc_backend.dao.users.UserDaoImpl
 
+/**
+ * Provides DAO instances.
+ */
 object DaoProvider {
+    /**
+     * Provides a user entity DAO.
+     *
+     * @return The user entity DAO.
+     */
     fun provideUserEntityDao(): UserDao = UserDaoImpl()
+
+    /**
+     * Provides an incident DAO.
+     *
+     * @return The incident DAO.
+     */
     fun provideIncidentDao(): IncidentDao = IncidentDaoImpl()
+
+    /**
+     * Provides a location DAO.
+     *
+     * @return The location DAO.
+     */
     fun provideLocationDao(): LocationDao = LocationDaoImpl()
 
+
+    /**
+     * Provides an archive incident DAO.
+     *
+     * @return The archive incident DAO.
+     */
     fun provideArchiveIncidentDao(): ArchiveIncidentDao = ArchiveIncidentDaoImpl()
+
+    /**
+     * Provides an archive location DAO.
+     *
+     * @return The archive location DAO.
+     */
     fun provideArchiveLocationDao(): ArchiveLocationDao = ArchiveLocationDaoImpl()
 }

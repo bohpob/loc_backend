@@ -9,15 +9,25 @@ import io.ktor.server.auth.jwt.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 
+/**
+ * Configures the user API.
+ */
 fun Route.configureUserApi() {
+    // Initialize the user DAO.
     val userDao = DaoProvider.provideUserEntityDao()
 
-    authenticate {
+    authenticate { // Routes that require authentication.
         readCurrentUser(userDao)
     }
 }
 
+/**
+ * Route. Reads the current user.
+ *
+ * @param userDao The user DAO.
+ */
 fun Route.readCurrentUser(userDao: UserDao) {
+    // Read the current user.
     get("users/me") {
         val principal = call.principal<JWTPrincipal>()
         val userId = principal?.getClaim("userId", String::class)

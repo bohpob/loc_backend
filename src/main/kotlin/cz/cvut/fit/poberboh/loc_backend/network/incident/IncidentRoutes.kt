@@ -14,21 +14,30 @@ import io.ktor.server.routing.*
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
+/**
+ * Configures the incident API.
+ */
 fun Route.configureIncidentApi() {
+    // Initialize the DAOs.
     val userDao = DaoProvider.provideUserEntityDao()
     val incidentDao = DaoProvider.provideIncidentDao()
     val locationDao = DaoProvider.provideLocationDao()
 
-    authenticate {
+    authenticate { // Routes that require authentication.
         createIncident(userDao, incidentDao)
         stopShare(userDao, incidentDao, locationDao)
         recordLocation(userDao, incidentDao, locationDao)
     }
 
-    readNearestLocations(locationDao)
+    readNearbyIncidents(locationDao)
 }
 
-fun Route.readNearestLocations(locationDao: LocationDao) {
+/**
+ * Route. Reads nearby incidents.
+ *
+ * @param locationDao The location DAO.
+ */
+fun Route.readNearbyIncidents(locationDao: LocationDao) {
     get {
         val latitude = call.parameters["latitude"]?.toDoubleOrNull()
         val longitude = call.parameters["longitude"]?.toDoubleOrNull()
@@ -38,7 +47,7 @@ fun Route.readNearestLocations(locationDao: LocationDao) {
             return@get
         }
 
-        val locations = locationDao.readNearestLocations(
+        val locations = locationDao.readNearbyIncidents(
             latitude = latitude,
             longitude = longitude
         )
@@ -54,6 +63,12 @@ fun Route.readNearestLocations(locationDao: LocationDao) {
     }
 }
 
+/**
+ * Route. Creates an incident.
+ *
+ * @param userDao The user DAO.
+ * @param incidentDao The incident DAO.
+ */
 fun Route.createIncident(userDao: UserDao, incidentDao: IncidentDao) {
     post {
         val principal = call.principal<JWTPrincipal>()
@@ -72,6 +87,13 @@ fun Route.createIncident(userDao: UserDao, incidentDao: IncidentDao) {
     }
 }
 
+/**
+ * Route. Stops sharing the location of the incident.
+ *
+ * @param userDao The user DAO.
+ * @param incidentDao The incident DAO.
+ * @param locationDao The location DAO.
+ */
 fun Route.stopShare(userDao: UserDao, incidentDao: IncidentDao, locationDao: LocationDao) {
     delete("{id}") {
         val principal = call.principal<JWTPrincipal>()
@@ -96,6 +118,13 @@ fun Route.stopShare(userDao: UserDao, incidentDao: IncidentDao, locationDao: Loc
     }
 }
 
+/**
+ * Route. Records a location.
+ *
+ * @param userDao The user DAO.
+ * @param incidentDao The incident DAO.
+ * @param locationDao The location DAO.
+ */
 fun Route.recordLocation(userDao: UserDao, incidentDao: IncidentDao, locationDao: LocationDao) {
     post("locations") {
         val timestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(2))
@@ -104,7 +133,7 @@ fun Route.recordLocation(userDao: UserDao, incidentDao: IncidentDao, locationDao
         val userId = principal?.getClaim("userId", String::class)
 
         if (userId != null && userDao.read(userId.toLong()) != null) {
-            val request = call.receive<RecordLocationRequest>()
+            val request = call.receive<LocationRequest>()
             val incident = incidentDao.read(request.incidentId)
 
             val statusCode = when {

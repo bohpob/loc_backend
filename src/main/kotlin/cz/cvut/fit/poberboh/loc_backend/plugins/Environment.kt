@@ -4,6 +4,11 @@ import cz.cvut.fit.poberboh.loc_backend.database.DatabaseConfig
 import cz.cvut.fit.poberboh.loc_backend.security.token.TokenConfig
 import io.ktor.server.application.*
 
+/**
+ * Creates a token configuration.
+ *
+ * @return The token configuration.
+ */
 fun ApplicationEnvironment.createTokenConfig(): TokenConfig {
     return TokenConfig(
         issuer = config.property("jwt.issuer").getString(),
@@ -14,6 +19,11 @@ fun ApplicationEnvironment.createTokenConfig(): TokenConfig {
     )
 }
 
+/**
+ * Creates a database configuration.
+ *
+ * @return The database configuration.
+ */
 fun ApplicationEnvironment.createDatabaseConfig(): DatabaseConfig {
     return DatabaseConfig(
         url = config.property("database.url").getString(),

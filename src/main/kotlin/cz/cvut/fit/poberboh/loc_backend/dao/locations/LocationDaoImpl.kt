@@ -12,20 +12,44 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/**
+ * Implementation of the [LocationDao] interface.
+ */
 class LocationDaoImpl : LocationDao {
+    // Maximum distance in kilometers for locations to be considered near each other.
     private val maxDistance = 1.0
 
+    /**
+     * Reads all locations.
+     *
+     * @return a list of all locations.
+     */
     override suspend fun readAllByIncidentId(id: Long): List<Location> = dbQuery {
         Locations.selectAll().where { Locations.incidentId eq id }
             .map(::resultRowToLocation)
     }
 
+    /**
+     * Reads a location by ID.
+     *
+     * @param id the ID of the location.
+     * @return the location.
+     */
     override suspend fun read(id: Long): Location? = dbQuery {
         Locations.selectAll().where { Locations.id eq id }
             .mapNotNull(::resultRowToLocation)
             .singleOrNull()
     }
 
+    /**
+     * Records a location.
+     *
+     * @param incidentId the incident ID.
+     * @param latitude the latitude.
+     * @param longitude the longitude.
+     * @param timestamp the timestamp.
+     * @return the location.
+     */
     override suspend fun recordLocation(
         incidentId: Long,
         latitude: Double,
@@ -41,7 +65,14 @@ class LocationDaoImpl : LocationDao {
         newGPSIncident.resultedValues?.singleOrNull()?.let(::resultRowToLocation)
     }
 
-    override suspend fun readNearestLocations(latitude: Double, longitude: Double): List<Location> = dbQuery {
+    /**
+     * Reads nearby incidents.
+     *
+     * @param latitude the latitude.
+     * @param longitude the longitude.
+     * @return the list of locations.
+     */
+    override suspend fun readNearbyIncidents(latitude: Double, longitude: Double): List<Location> = dbQuery {
         val lastLocationIds = Incidents.select(Incidents.lastLocationId)
             .where { Incidents.lastLocationId.isNotNull() }
             .map { it[Incidents.lastLocationId]!! }
@@ -52,6 +83,16 @@ class LocationDaoImpl : LocationDao {
         locations.filter { calculateDistance(latitude, longitude, it.latitude, it.longitude) < maxDistance }
     }
 
+    /**
+     * Calculates the distance between two points.
+     * Haversine formula.
+     *
+     * @param latitude1 the latitude of the first point.
+     * @param longitude1 the longitude of the first point.
+     * @param latitude2 the latitude of the second point.
+     * @param longitude2 the longitude of the second point.
+     * @return the distance between the two points.
+     */
     private fun calculateDistance(
         latitude1: Double,
         longitude1: Double,
@@ -68,6 +109,12 @@ class LocationDaoImpl : LocationDao {
         return earthRadius * centralAngle
     }
 
+    /**
+     * Converts a result row to a location.
+     *
+     * @param row the result row.
+     * @return the location.
+     */
     private fun resultRowToLocation(row: ResultRow) = Location(
         id = row[Locations.id],
         incidentId = row[Locations.incidentId],

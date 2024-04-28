@@ -7,7 +7,13 @@ import cz.cvut.fit.poberboh.loc_backend.security.token.TokenConfig
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 
+/**
+ * Configures the routing.
+ *
+ * @param tokenConfig The token configuration.
+ */
 fun Application.configureRouting(tokenConfig: TokenConfig) {
+    // Configure the routing.
     routing {
         route("auth") {
             configureAuthApi(tokenConfig)

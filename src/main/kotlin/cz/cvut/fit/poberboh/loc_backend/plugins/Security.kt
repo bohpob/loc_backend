@@ -7,10 +7,19 @@ import io.ktor.server.application.*
 import io.ktor.server.auth.*
 import io.ktor.server.auth.jwt.*
 
+/**
+ * Configures security.
+ *
+ * @param config The token configuration.
+ */
 fun Application.configureSecurity(config: TokenConfig) {
+    // Configure security.
     authentication {
+        // Configure JWT authentication.
         jwt {
             this.realm = this@configureSecurity.environment.config.property("jwt.realm").getString()
+
+            // Configure the verifier.
             verifier(
                 JWT
                     .require(Algorithm.HMAC256(config.secret))
@@ -18,6 +27,8 @@ fun Application.configureSecurity(config: TokenConfig) {
                     .withIssuer(config.issuer)
                     .build()
             )
+
+            // Validate the credentials.
             validate { credential ->
                 if (credential.payload.audience.contains(config.audience)) JWTPrincipal(credential.payload) else null
             }

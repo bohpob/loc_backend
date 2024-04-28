@@ -21,17 +21,31 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import java.util.*
 
+/**
+ * Configures the authentication API.
+ *
+ * @param tokenConfig The token configuration.
+ */
 fun Route.configureAuthApi(tokenConfig: TokenConfig) {
+    // Initialize the services and DAOs.
     val tokenService = JwtTokenService()
     val hashingService = SHA256HashingService()
     val userDao = DaoProvider.provideUserEntityDao()
 
+    // Configure the routes.
     login(hashingService, userDao, tokenService, tokenConfig)
     register(hashingService, userDao)
     refresh(tokenService, tokenConfig, userDao)
     authenticateRoute()
 }
 
+/**
+ * Route. Refreshes the access token.
+ *
+ * @param tokenService The token service.
+ * @param tokenConfig The token configuration.
+ * @param userDao The user DAO.
+ */
 fun Route.refresh(
     tokenService: TokenService,
     tokenConfig: TokenConfig,
@@ -45,8 +59,10 @@ fun Route.refresh(
         }
 
         try {
+            // Decode the JWT.
             val jwt: DecodedJWT = JWT.decode(request.refreshToken)
 
+            // Check if the token is expired.
             if (jwt.expiresAt.before(Date())) {
                 return@post call.respond(HttpStatusCode.Conflict)
             }
@@ -68,6 +84,12 @@ fun Route.refresh(
     }
 }
 
+/**
+ * Route. Registers a new user.
+ *
+ * @param hashingService The hashing service.
+ * @param userDao The user DAO.
+ */
 fun Route.register(
     hashingService: HashingService,
     userDao: UserDao
@@ -84,6 +106,7 @@ fun Route.register(
             return@post call.respond(HttpStatusCode.Conflict, "A user with the same username is already registered")
         }
 
+        // Generate the salted hash.
         val saltedHash = hashingService.generateSaltedHash(request.password)
 
         userDao.create(request.username, saltedHash.hash, saltedHash.salt)
@@ -93,6 +116,14 @@ fun Route.register(
     }
 }
 
+/**
+ * Route. Logs in a user.
+ *
+ * @param hashingService The hashing service.
+ * @param userDao The user DAO.
+ * @param tokenService The token service.
+ * @param tokenConfig The token configuration.
+ */
 fun Route.login(
     hashingService: HashingService,
     userDao: UserDao,
@@ -102,6 +133,7 @@ fun Route.login(
     post("login") {
         val request = call.receiveNullable<AuthRequest>() ?: return@post call.respond(HttpStatusCode.BadRequest)
 
+        // Validate the input.
         val validation = validateLoginInput(request.username, request.password)
         if (validation != null) {
             return@post call.respond(HttpStatusCode.Conflict, validation)
@@ -110,6 +142,7 @@ fun Route.login(
         val user = userDao.readByUsername(request.username)
             ?: return@post call.respond(HttpStatusCode.Conflict, "Incorrect username or password")
 
+        // Verify the password.
         val isValidPassword = hashingService.verify(
             value = request.password,
             saltedHash = SaltedHash(
@@ -122,12 +155,16 @@ fun Route.login(
             return@post call.respond(HttpStatusCode.Conflict, "Invalid password")
         }
 
+        // Create the tokens.
         val (accessToken, refreshToken) = createTokens(tokenService, tokenConfig, user)
 
         call.respond(HttpStatusCode.OK, TokenResponse(accessToken, refreshToken))
     }
 }
 
+/**
+ * Creates the access and refresh tokens.
+ */
 private fun createTokens(tokenService: TokenService, tokenConfig: TokenConfig, user: User): TokenResponse {
     val accessToken = tokenService.createAccessToken(
         tokenConfig,
@@ -139,11 +176,19 @@ private fun createTokens(tokenService: TokenService, tokenConfig: TokenConfig, u
         tokenConfig,
         TokenClaim("userId", user.id.toString())
     )
+    // Store the refresh token.
     RefreshTokens.addRefreshToken(user.id.toString(), refreshToken)
 
     return TokenResponse(accessToken, refreshToken)
 }
 
+/**
+ * Validates the login input.
+ *
+ * @param username The username.
+ * @param password The password.
+ * @return The error message if the input is invalid, null otherwise.
+ */
 private fun validateLoginInput(username: String, password: String): String? {
     if (username.isEmpty() || password.isEmpty()) {
         return "Username and password must not be empty"
@@ -161,6 +206,9 @@ private fun validateLoginInput(username: String, password: String): String? {
     return null
 }
 
+/**
+ * Represents the authentication request.
+ */
 fun Route.authenticateRoute() {
     authenticate {
         get {
