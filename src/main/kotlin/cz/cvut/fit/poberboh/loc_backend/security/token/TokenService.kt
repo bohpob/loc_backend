@@ -1,7 +1,7 @@
 package cz.cvut.fit.poberboh.loc_backend.security.token
 
 /**
- * Service for creating JWT tokens.
+ * Service for creating tokens.
  */
 interface TokenService {
     /**

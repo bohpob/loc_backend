@@ -13,7 +13,6 @@ import io.ktor.server.routing.*
  * @param tokenConfig The token configuration.
  */
 fun Application.configureRouting(tokenConfig: TokenConfig) {
-    // Configure the routing.
     routing {
         route("auth") {
             configureAuthApi(tokenConfig)
